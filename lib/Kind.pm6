@@ -2,7 +2,7 @@ use v6;
 #|[ An uninstantiable parametric type that can be used to typecheck values based
     on their kind. Once parameterized with a kind of type, smartmatching a type
     object against this will result in a typecheck based on the type's HOW. ]
-unit class Kind:ver<1.0.1>:auth<zef:Kaiepi>:api<2> is repr<Uninstantiable>;
+unit class Kind:ver<1.0.3>:auth<zef:Kaiepi>:api<2> is repr<Uninstantiable>;
 
 # Produces a refinement on CALL-ME.
 my class Refine does Callable is repr<Uninstantiable> { ... }
@@ -51,23 +51,18 @@ my class Refine is Mu {
         # We need to wrap uninvokable refinements to appease Rakudo.
         # Mu.ACCEPTS makes for a method of invoking Junction.THREAD.
         $junction := self.ACCEPTS: $junction;
-        anon sub accepts(Mu $topic) is pure { $junction.ACCEPTS: $topic }
+        anon sub accepts(Mu $topic) is pure { ?$junction.ACCEPTS: $topic }
     }
 
-    # A Mu parameter is actually untyped. An nqp-ish metaobject (e.g. Rakudo's
-    # metaroles) are not actually Mu, and thus demand a special smartmatch.
+    # A Mu parameter is actually untyped. An nqp-ish metaobject (e.g. a
+    # metarole of Rakudo's) is not Mu by default, and thus takes due care.
     multi method ACCEPTS(Mu \K) {
         Metamodel::Primitives.is_type(K, Mu) ?? (match K) !! (check K)
     }
 
-    # Smartmatch handler. We need to match HOWs generally, but Junction.ACCEPTS
-    # can't cope with when its components aren't Mu, so abuse Junction.THREAD.
-    proto sub match(Mu) {*}
-    multi sub match(Mu \K) {
+    # Smartmatch handler. Spare &[~~]'s dispatch for the more uniform check.
+    sub match(Mu \K) {
         anon sub accepts-higher(Mu $topic) is pure { ?K.ACCEPTS: $topic.HOW }
-    }
-    multi sub match(Junction:D $junction) {
-        $?CLASS.ACCEPTS: $junction
     }
 
     # Typecheck handler. We can assume an object that isn't Mu isn't HLL
